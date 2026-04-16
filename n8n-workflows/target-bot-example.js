@@ -16,6 +16,9 @@ const TOKEN = process.env.TARGET_BOT_TOKEN || 'YOUR_TARGET_BOT_TOKEN';
 
 const API = `https://api.telegram.org/bot${TOKEN}`;
 
+// n8n Code Node body — wrapped in IIFE for linting compatibility
+// In n8n, paste ONLY the contents of the function (without the wrapper)
+const _run = async function() {
 const msg = $input.first().json;
 const text = (msg.message?.text || '').trim();
 const cb = msg.callback_query?.data || '';
@@ -84,13 +87,20 @@ if (text === '/start' || cb === 'back_menu') {
 
 // Answer callback query (removes loading indicator on button)
 if (cbId) {
-  const cbText = cb === 'ping' ? 'Pong!' : cb.startsWith('buy_') ? '✅ Added!' : '';
-  await this.helpers.httpRequest({method: 'POST', url: API + '/answerCallbackQuery', body: {callback_query_id: cbId, text: cbText}, json: true});
+  try {
+    const cbText = cb === 'ping' ? 'Pong!' : cb.startsWith('buy_') ? '✅ Added!' : '';
+    await this.helpers.httpRequest({method: 'POST', url: API + '/answerCallbackQuery', body: {callback_query_id: cbId, text: cbText}, json: true});
+  } catch (_e) {
+    // Non-critical: button loading indicator stays but message still sends
+  }
 }
 
 // Send response
 const body = {chat_id: chatId, text: r};
-if (kb) body.reply_markup = JSON.stringify({inline_keyboard: kb});
-await this.helpers.httpRequest({method: 'POST', url: API + '/sendMessage', body, json: true});
+if (kb) body.reply_markup = {inline_keyboard: kb};
+const sendResp = await this.helpers.httpRequest({method: 'POST', url: API + '/sendMessage', body, json: true});
+if (!sendResp.ok) throw new Error(`Telegram sendMessage failed: ${sendResp.description || 'unknown error'}`);
 
 return [{json: {ok: true}}];
+}; // end _run
+export default _run;

@@ -19,25 +19,37 @@ const ADMIN_CHAT_ID = '123456789';            // Your Telegram user ID
 
 const API = `https://api.telegram.org/bot${RUNNER_TOKEN}`;
 
+// n8n Code Node body — wrapped in IIFE for linting compatibility
+// In n8n, paste ONLY the contents of the function (without the wrapper)
+const _run = async function() {
+
+// Persistent offset to avoid processing duplicate updates
+let lastOffset = 0;
+
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function req(url, body) {
-  return await this.helpers.httpRequest({method: 'POST', url, body, json: true});
+  try {
+    return await this.helpers.httpRequest({method: 'POST', url, body, json: true});
+  } catch (_e) {
+    return {ok: false, description: e.message};
+  }
 }
 
-async function getUpd(offset) {
-  return await this.helpers.httpRequest({
-    method: 'GET',
-    url: `${API}/getUpdates?limit=100${offset ? '&offset=' + offset : ''}`,
-    json: true
-  });
+async function getUpd() {
+  try {
+    const url = `${API}/getUpdates?limit=100${lastOffset ? '&offset=' + lastOffset : ''}`;
+    return await this.helpers.httpRequest({method: 'GET', url, json: true});
+  } catch (_e) {
+    return {ok: false, result: []};
+  }
 }
 
 async function drain() {
   for (let i = 0; i < 10; i++) {
     const r = await getUpd.call(this);
-    if (!r.result?.length) break;
-    await getUpd.call(this, r.result[r.result.length - 1].update_id + 1);
+    if (!r.ok || !r.result?.length) break;
+    lastOffset = r.result[r.result.length - 1].update_id + 1;
     await sleep(200);
   }
 }
@@ -51,10 +63,11 @@ async function probe(cmd) {
   for (let i = 0; i < 7; i++) {
     await sleep(1500);
     const r = await getUpd.call(this);
+    if (!r.ok) continue;
     for (const u of (r.result || [])) {
       const m = u.message;
+      lastOffset = u.update_id + 1;
       if (!m?.from?.is_bot) continue;
-      await getUpd.call(this, u.update_id + 1);
       const buttons = [];
       if (m.reply_markup?.inline_keyboard)
         for (const row of m.reply_markup.inline_keyboard)
@@ -170,3 +183,5 @@ await req.call(this, `${API}/sendMessage`, {
 });
 
 return [{json: {ok: all.filter(r => r.ok).length, total: all.length, buttons: seenCb.size, avgMs, duration: Math.round(totalTime / 1000)}}];
+}; // end _run
+export default _run;

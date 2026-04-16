@@ -1,0 +1,20 @@
+{
+  "name": "telegram-bot-tester",
+  "version": "1.0.0",
+  "description": "Universal Telegram Bot Tester — bot-to-bot E2E testing via n8n",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint n8n-workflows/",
+    "lint:fix": "eslint n8n-workflows/ --fix",
+    "check-secrets": "grep -rn 'AAF\\|AAG\\|AAH\\|eyJ\\|sk-\\|sk_\\|hf_' n8n-workflows/ && echo 'SECRETS FOUND!' && exit 1 || echo 'Clean'",
+    "precommit": "npm run check-secrets && npm run lint"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.4"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OXI-717/telegram-bot-tester"
+  }
+}
